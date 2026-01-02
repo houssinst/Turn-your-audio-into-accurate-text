@@ -4,46 +4,36 @@
 */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { TranscriptionSegment } from "../types";
+import { TranscriptionResponse } from "../types";
 
-// Explicitly declare process for environments where @types/node might not be indexed correctly by tsc
-declare var process: any;
-
+/**
+ * Transcribes audio using Gemini 2.5 Native Audio model.
+ * It identifies speakers, timestamps, and emotional sentiment.
+ */
 export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
-): Promise<{ segments: TranscriptionSegment[]; summary: string }> => {
-  // Access the API Key. Note: In Vite, this is replaced at build time via the define config.
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-
-  if (!apiKey || apiKey === "") {
-    throw new Error("API Key is missing. Please ensure the API_KEY environment variable is set during the build process.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+): Promise<TranscriptionResponse> => {
+  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
+  // The client is created inside the function to ensure the latest API key is used.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
-    You are an expert audio transcription assistant.
-    Process the provided audio file and generate a detailed transcription.
-    
-    Requirements:
-    1. Identify distinct speakers (Speaker 1, Speaker 2, etc.).
-    2. Provide accurate timestamps (Format: MM:SS).
-    3. Detect the primary language of each segment.
-    4. Provide English translation if the segment is not in English.
-    5. Identify speaker emotion: Happy, Sad, Angry, or Neutral.
-    6. Provide a brief summary of the entire audio.
+    Analyze this audio file and return a JSON object with a 'summary' string and an array of 'segments'.
+    Each segment must include: 'speaker' (e.g. "Speaker 1"), 'timestamp' (MM:SS), 'content' (the transcribed text), 
+    'language', 'language_code', and 'emotion' (Happy, Sad, Angry, or Neutral).
+    If a segment is not in English, provide an English 'translation'.
   `;
 
   try {
-    // Using gemini-2.5-flash-native-audio-preview-09-2025 as it is optimized for audio tasks
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-native-audio-preview-09-2025",
       contents: {
         parts: [
           {
             inlineData: {
-              mimeType: mimeType,
+              // Extract base MIME type (e.g., audio/webm) for the API
+              mimeType: mimeType.split(';')[0],
               data: base64Audio,
             },
           },
@@ -57,56 +47,79 @@ export const transcribeAudio = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            summary: {
+            summary: { 
               type: Type.STRING,
-              description: "A concise summary of the audio content.",
+              description: "A comprehensive summary of the conversation or audio content."
             },
             segments: {
               type: Type.ARRAY,
-              description: "List of transcribed segments.",
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  speaker: { type: Type.STRING },
-                  timestamp: { type: Type.STRING },
-                  content: { type: Type.STRING },
-                  language: { type: Type.STRING },
-                  language_code: { type: Type.STRING },
-                  translation: { type: Type.STRING },
+                  speaker: { 
+                    type: Type.STRING,
+                    description: "Identifier for the person speaking."
+                  },
+                  timestamp: { 
+                    type: Type.STRING,
+                    description: "The start time of this segment in MM:SS format."
+                  },
+                  content: { 
+                    type: Type.STRING,
+                    description: "The exact transcription of the spoken words."
+                  },
+                  language: { 
+                    type: Type.STRING,
+                    description: "The primary language spoken in this segment."
+                  },
+                  language_code: { 
+                    type: Type.STRING,
+                    description: "The ISO 639-1 code for the language (e.g., 'en')."
+                  },
+                  translation: { 
+                    type: Type.STRING,
+                    description: "An English translation of the content, if needed."
+                  },
                   emotion: { 
-                    type: Type.STRING, 
-                    description: "The emotion of the speaker.",
-                    enum: ["Happy", "Sad", "Angry", "Neutral"]
+                    type: Type.STRING,
+                    description: "One of: Happy, Sad, Angry, Neutral."
                   },
                 },
                 required: ["speaker", "timestamp", "content", "language", "language_code", "emotion"],
+                propertyOrdering: ["speaker", "timestamp", "content", "language", "language_code", "emotion", "translation"]
               },
             },
           },
           required: ["summary", "segments"],
+          propertyOrdering: ["summary", "segments"]
         },
       },
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("The model returned an empty response. The audio might be too short or contains no detectable speech.");
+      throw new Error("The AI model returned an empty response. The audio might be unsupported or too short.");
     }
 
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text.trim()) as TranscriptionResponse;
+    } catch (parseError) {
+      console.error("JSON Parse Error:", text);
+      throw new Error("Failed to interpret the transcription format. Please try again.");
+    }
 
   } catch (error: any) {
-    console.error("Gemini Transcription Error:", error);
+    console.error("Gemini API Error:", error);
     
-    // Bubble up a descriptive error message
-    if (error.message?.includes('403')) {
-      throw new Error("Permission denied (403). Your API Key might be invalid or doesn't have access to this model.");
-    } else if (error.message?.includes('429')) {
-      throw new Error("Rate limit exceeded (429). Please wait a moment before trying again.");
-    } else if (error.message?.includes('400')) {
-      throw new Error("Bad Request (400). This often means the audio format or size is not supported.");
+    const message = error.message || "";
+    if (message.includes('403')) {
+      throw new Error("Authentication failed: Ensure your Gemini API Key is valid and project billing is active.");
+    } else if (message.includes('429')) {
+      throw new Error("Rate limit exceeded: Please wait a minute before starting another transcription.");
+    } else if (message.includes('400')) {
+      throw new Error("Invalid request: Check if the audio file is corrupted or in an unsupported format.");
     }
     
-    throw error;
+    throw new Error(`Transcription process failed: ${message || "An unexpected error occurred."}`);
   }
 };

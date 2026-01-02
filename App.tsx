@@ -19,7 +19,6 @@ function App() {
   const [result, setResult] = useState<TranscriptionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Initialize dark mode based on system preference
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -27,7 +26,6 @@ function App() {
     return false;
   });
 
-  // Toggle Dark Mode
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -41,7 +39,8 @@ function App() {
   const handleAudioReady = (data: AudioData) => {
     setAudioData(data);
     setError(null);
-    setResult(null); // Clear previous results
+    setResult(null);
+    setStatus('idle');
   };
 
   const handleTranscribe = async () => {
@@ -52,7 +51,7 @@ function App() {
 
     try {
       const data = await transcribeAudio(audioData.base64, audioData.mimeType);
-      setResult(data as TranscriptionResponse);
+      setResult(data);
       setStatus('success');
     } catch (err: any) {
       console.error(err);
@@ -70,7 +69,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-20 transition-colors duration-300">
-      {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -97,8 +95,6 @@ function App() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
-        
-        {/* Intro */}
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
             Turn your audio into accurate text
@@ -108,9 +104,8 @@ function App() {
           </p>
         </div>
 
-        {/* Status Error */}
-        {status === 'error' && error && (
-          <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-start text-red-800 dark:text-red-400 shadow-sm animate-in fade-in slide-in-from-top-2">
+        {error && (
+          <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-start text-red-800 dark:text-red-400 shadow-sm">
             <AlertTriangle className="mr-4 flex-shrink-0 mt-0.5 text-red-600 dark:text-red-500" size={24} />
             <div className="flex-1">
               <h4 className="font-bold mb-1">Transcription Failed</h4>
@@ -126,12 +121,11 @@ function App() {
           </div>
         )}
 
-        {/* Input Selection Tabs */}
-        {!result && status !== 'error' && (
+        {!result && status !== 'processing' && (
             <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
-                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${
+                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 mode === 'record' 
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -143,7 +137,7 @@ function App() {
             </button>
             <button
                 onClick={() => { setMode('upload'); handleReset(); }}
-                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${
+                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 mode === 'upload' 
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -156,11 +150,8 @@ function App() {
             </div>
         )}
 
-        {/* Main Content Area */}
         <div className="space-y-8">
-          
-          {/* Input Section */}
-          {!result && status !== 'processing' && status !== 'error' && (
+          {!result && status !== 'processing' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
               {mode === 'record' ? (
                 <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
@@ -172,7 +163,6 @@ function App() {
                 <div className="mt-6 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
                   <Button 
                     onClick={handleTranscribe} 
-                    isLoading={false}
                     className="w-full sm:w-auto"
                     icon={<Sparkles size={16} />}
                   >
@@ -183,7 +173,6 @@ function App() {
             </div>
           )}
 
-          {/* Processing State */}
           {status === 'processing' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center transition-colors duration-300">
               <div className="flex justify-center mb-6">
@@ -196,12 +185,11 @@ function App() {
               </div>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Analyzing Audio...</h3>
               <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                Gemini is identifying speakers, detecting languages, and generating your transcript. This usually takes just a few seconds.
+                Gemini is identifying speakers and generating your transcript. This usually takes just a few seconds.
               </p>
             </div>
           )}
 
-          {/* Results Section */}
           {result && status === 'success' && (
             <div>
                 <div className="flex justify-between items-center mb-6">
@@ -213,16 +201,11 @@ function App() {
           )}
         </div>
 
-        {/* Disclaimer */}
         <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors duration-300">
             <p className="mb-2">
-            By using this feature, you confirm that you have the necessary rights to any content that you upload. Do not upload content that infringes on others’ intellectual property or privacy rights. Your use of this generative AI service is subject to our <a href="https://policies.google.com/terms/generative-ai/use-policy" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Prohibited Use Policy</a>.
-            </p>
-            <p>
-            Please note that uploads from Google Workspace may be used to develop and improve Google products and services in accordance with our <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-slate-300 transition-colors">terms</a>.
+            Usage of generative AI service is subject to Google's <a href="https://policies.google.com/terms/generative-ai/use-policy" target="_blank" rel="noopener noreferrer" className="underline">Prohibited Use Policy</a>.
             </p>
         </div>
-
       </main>
     </div>
   );

@@ -25,7 +25,10 @@ export interface TranscriptionResponse {
   segments: TranscriptionSegment[];
 }
 
-// AppState must include 'processing' to be compatible with the status transitions in App.tsx
+/**
+ * AppState covers all possible UI states. 
+ * 'processing' is essential for showing the loading indicator during Gemini API calls.
+ */
 export type AppState = 'idle' | 'recording' | 'processing' | 'success' | 'error';
 
 export interface AudioData {
