@@ -13,9 +13,13 @@ export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<TranscriptionResponse> => {
-  // Initialize AI using the environment variable. 
-  // Ensure your deployment includes API_KEY in the environment settings.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Cloud Engine Error: No API Key found in environment variables. Please add 'API_KEY' to your environment secrets or use 'Local Engine'.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     Analyze the provided audio recording and generate a professional transcript.
@@ -79,23 +83,18 @@ export const transcribeAudio = async (
       },
     });
 
-    // Access the text property directly (it's a getter, not a method)
     const textOutput = response.text;
     if (!textOutput) {
-      throw new Error("Empty response from AI. Try a longer audio segment.");
+      throw new Error("Cloud Engine returned an empty response.");
     }
 
     return JSON.parse(textOutput.trim()) as TranscriptionResponse;
 
   } catch (error: any) {
-    console.error("Transcription API Error:", error);
-    
+    console.error("Gemini API Error:", error);
     if (error.status === 403) {
-      throw new Error("Authentication failed. Please verify that the API key is correctly set in your environment variables.");
-    } else if (error.status === 429) {
-      throw new Error("Rate limit exceeded. Please wait a few moments.");
+      throw new Error("Cloud Engine: Invalid API Key. Please verify your credentials.");
     }
-    
-    throw new Error(error.message || "Failed to process audio. Please try again with a different file.");
+    throw new Error(error.message || "Cloud Engine failed to process audio.");
   }
 };

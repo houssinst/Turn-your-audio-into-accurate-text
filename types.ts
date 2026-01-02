@@ -25,11 +25,9 @@ export interface TranscriptionResponse {
   segments: TranscriptionSegment[];
 }
 
-/**
- * AppState covers all possible UI states. 
- * 'processing' is essential for showing the loading indicator during Gemini API calls.
- */
-export type AppState = 'idle' | 'recording' | 'processing' | 'success' | 'error';
+export type EngineType = 'cloud' | 'local';
+
+export type AppState = 'idle' | 'recording' | 'loading_model' | 'processing' | 'success' | 'error';
 
 export interface AudioData {
   blob: Blob | File;
