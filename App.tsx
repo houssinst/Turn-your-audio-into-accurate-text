@@ -1,11 +1,10 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
 import React, { useState, useEffect } from 'react';
-import { Mic, Upload, Sparkles, AlertTriangle, Moon, Sun } from 'lucide-react';
+import { Mic, Upload, Sparkles, AlertTriangle, Moon, Sun, RotateCcw } from 'lucide-react';
 import AudioRecorder from './components/AudioRecorder';
 import FileUploader from './components/FileUploader';
 import TranscriptionDisplay from './components/TranscriptionDisplay';
@@ -55,9 +54,9 @@ function App() {
       const data = await transcribeAudio(audioData.base64, audioData.mimeType);
       setResult(data as TranscriptionResponse);
       setStatus('success');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("An error occurred during transcription. Please try again.");
+      setError(err.message || "An unexpected error occurred during transcription.");
       setStatus('error');
     }
   };
@@ -84,7 +83,7 @@ function App() {
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-              Powered by Gemini 3 Flash Preview
+              Powered by Gemini Native Audio
             </div>
             <button
               onClick={toggleDarkMode}
@@ -111,14 +110,24 @@ function App() {
 
         {/* Status Error */}
         {status === 'error' && error && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start text-red-700 dark:text-red-400">
-            <AlertTriangle className="mr-3 flex-shrink-0 mt-0.5" size={20} />
-            <p>{error}</p>
+          <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-start text-red-800 dark:text-red-400 shadow-sm animate-in fade-in slide-in-from-top-2">
+            <AlertTriangle className="mr-4 flex-shrink-0 mt-0.5 text-red-600 dark:text-red-500" size={24} />
+            <div className="flex-1">
+              <h4 className="font-bold mb-1">Transcription Failed</h4>
+              <p className="text-sm leading-relaxed opacity-90">{error}</p>
+              <button 
+                onClick={handleReset}
+                className="mt-3 flex items-center text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-300 hover:underline"
+              >
+                <RotateCcw size={12} className="mr-1" />
+                Try Again
+              </button>
+            </div>
           </div>
         )}
 
         {/* Input Selection Tabs */}
-        {!result && (
+        {!result && status !== 'error' && (
             <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
@@ -151,9 +160,7 @@ function App() {
         <div className="space-y-8">
           
           {/* Input Section */}
-          {/* Fix: Simplified block guard to avoid impossible status checks inside. 
-              Since this block is hidden when status is 'processing', internal checks for 'processing' status are redundant and cause TS errors. */}
-          {!result && status !== 'processing' && (
+          {!result && status !== 'processing' && status !== 'error' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
               {mode === 'record' ? (
                 <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
