@@ -8,22 +8,30 @@ import { TranscriptionResponse } from "../types";
 
 /**
  * Transcribes audio using Gemini 2.5 Native Audio model.
- * It identifies speakers, timestamps, and emotional sentiment.
+ * Optimized for natural language processing and speaker identification.
  */
 export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<TranscriptionResponse> => {
-  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
-  // The client is created inside the function to ensure the latest API key is used.
+  // Use the API key from the environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+  // Simplified and direct prompt for higher success rate
   const prompt = `
-    Analyze this audio file and return a JSON object with a 'summary' string and an array of 'segments'.
-    Each segment must include: 'speaker' (e.g. "Speaker 1"), 'timestamp' (MM:SS), 'content' (the transcribed text), 
-    'language', 'language_code', and 'emotion' (Happy, Sad, Angry, or Neutral).
-    If a segment is not in English, provide an English 'translation'.
+    Analyze the provided audio recording. 
+    1. Summarize the content.
+    2. Transcribe the conversation word-for-word.
+    3. Identify different speakers (Speaker 1, Speaker 2, etc.).
+    4. Provide timestamps in MM:SS format.
+    5. Detect emotion for each speaker segment.
+    6. Provide English translation for non-English parts.
+    
+    Output MUST be in the specified JSON format.
   `;
+
+  // Clean the MIME type - some browsers send extended strings like 'audio/webm;codecs=opus'
+  const cleanMimeType = mimeType.split(';')[0];
 
   try {
     const response = await ai.models.generateContent({
@@ -32,8 +40,7 @@ export const transcribeAudio = async (
         parts: [
           {
             inlineData: {
-              // Extract base MIME type (e.g., audio/webm) for the API
-              mimeType: mimeType.split(';')[0],
+              mimeType: cleanMimeType,
               data: base64Audio,
             },
           },
@@ -49,77 +56,57 @@ export const transcribeAudio = async (
           properties: {
             summary: { 
               type: Type.STRING,
-              description: "A comprehensive summary of the conversation or audio content."
+              description: "Brief summary of the audio content."
             },
             segments: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  speaker: { 
-                    type: Type.STRING,
-                    description: "Identifier for the person speaking."
-                  },
-                  timestamp: { 
-                    type: Type.STRING,
-                    description: "The start time of this segment in MM:SS format."
-                  },
-                  content: { 
-                    type: Type.STRING,
-                    description: "The exact transcription of the spoken words."
-                  },
-                  language: { 
-                    type: Type.STRING,
-                    description: "The primary language spoken in this segment."
-                  },
-                  language_code: { 
-                    type: Type.STRING,
-                    description: "The ISO 639-1 code for the language (e.g., 'en')."
-                  },
-                  translation: { 
-                    type: Type.STRING,
-                    description: "An English translation of the content, if needed."
-                  },
+                  speaker: { type: Type.STRING },
+                  timestamp: { type: Type.STRING },
+                  content: { type: Type.STRING },
+                  language: { type: Type.STRING },
+                  language_code: { type: Type.STRING },
+                  translation: { type: Type.STRING },
                   emotion: { 
-                    type: Type.STRING,
-                    description: "One of: Happy, Sad, Angry, Neutral."
+                    type: Type.STRING, 
+                    enum: ["Happy", "Sad", "Angry", "Neutral"]
                   },
                 },
-                required: ["speaker", "timestamp", "content", "language", "language_code", "emotion"],
-                propertyOrdering: ["speaker", "timestamp", "content", "language", "language_code", "emotion", "translation"]
+                required: ["speaker", "timestamp", "content", "language", "language_code", "emotion"]
               },
             },
           },
-          required: ["summary", "segments"],
-          propertyOrdering: ["summary", "segments"]
+          required: ["summary", "segments"]
         },
       },
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("The AI model returned an empty response. The audio might be unsupported or too short.");
+      throw new Error("The AI model returned an empty transcript. The audio might be silent or too short.");
     }
 
     try {
       return JSON.parse(text.trim()) as TranscriptionResponse;
     } catch (parseError) {
-      console.error("JSON Parse Error:", text);
-      throw new Error("Failed to interpret the transcription format. Please try again.");
+      console.error("JSON Parsing failed for text:", text);
+      throw new Error("Failed to read the transcription result. Please try recording a bit longer.");
     }
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     
-    const message = error.message || "";
-    if (message.includes('403')) {
-      throw new Error("Authentication failed: Ensure your Gemini API Key is valid and project billing is active.");
-    } else if (message.includes('429')) {
-      throw new Error("Rate limit exceeded: Please wait a minute before starting another transcription.");
-    } else if (message.includes('400')) {
-      throw new Error("Invalid request: Check if the audio file is corrupted or in an unsupported format.");
+    const status = error?.status;
+    if (status === 403) {
+      throw new Error("API Key Authentication failed. Please check your deployment settings.");
+    } else if (status === 429) {
+      throw new Error("Transcription rate limit reached. Please wait a moment.");
+    } else if (status === 400) {
+      throw new Error("The audio file format is not supported by the AI. Try a standard format like WAV or MP3.");
     }
     
-    throw new Error(`Transcription process failed: ${message || "An unexpected error occurred."}`);
+    throw new Error(error.message || "Transcription failed due to a network or server error.");
   }
 };

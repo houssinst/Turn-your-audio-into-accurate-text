@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -121,7 +122,8 @@ function App() {
           </div>
         )}
 
-        {!result && status !== 'processing' && (
+        {/* Removed status !== 'processing' from the conditional to prevent TS narrowing error for nested disabled props */}
+        {!result && (
             <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
@@ -151,8 +153,10 @@ function App() {
         )}
 
         <div className="space-y-8">
-          {!result && status !== 'processing' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
+          {/* Changed status !== 'processing' logic to use CSS hidden instead of React conditional rendering, 
+              which prevents 'status' from being narrowed and fixes TS errors when checking 'status === processing' internally */}
+          {!result && (
+            <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300 ${status === 'processing' ? 'hidden' : ''}`}>
               {mode === 'record' ? (
                 <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
               ) : (
