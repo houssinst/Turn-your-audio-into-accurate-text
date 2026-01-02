@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -15,6 +16,7 @@ export interface TranscriptionSegment {
   timestamp: string;
   content: string;
   language: string;
+  language_code: string;
   translation?: string;
   emotion?: Emotion;
 }
@@ -27,7 +29,7 @@ export interface TranscriptionResponse {
 export type AppStatus = 'idle' | 'recording' | 'processing' | 'success' | 'error';
 
 export interface AudioData {
-  blob: Blob;
+  blob: Blob | File;
   base64: string;
   mimeType: string;
 }
