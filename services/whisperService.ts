@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -9,15 +10,19 @@ let transcriber: any = null;
 
 /**
  * Transcribes audio locally using Whisper Tiny (via transformers.js).
- * Requires no API key and runs entirely in the browser.
+ * Runs entirely in the browser, requiring no API key.
  */
 export const transcribeLocally = async (
   audioFile: Blob | File,
   onProgress?: (progress: number) => void
 ): Promise<TranscriptionResponse> => {
   try {
-    // Dynamic import to keep main bundle light
-    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    // Dynamic import of the library from node_modules
+    const { pipeline, env } = await import('@xenova/transformers');
+
+    // Configure env to allow local loading if needed, though default is fine for most cases
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
 
     if (!transcriber) {
       transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
@@ -34,7 +39,6 @@ export const transcribeLocally = async (
     const arrayBuffer = await audioFile.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     
-    // Convert to mono if needed
     let float32Data = audioBuffer.getChannelData(0);
     if (audioBuffer.numberOfChannels > 1) {
       const channel2 = audioBuffer.getChannelData(1);
@@ -51,9 +55,8 @@ export const transcribeLocally = async (
       return_timestamps: true
     });
 
-    // Format Whisper output to match our app's TranscriptionResponse type
     return {
-      summary: "Transcription generated locally using Whisper AI. No data was sent to the cloud.",
+      summary: "Transcription generated locally using OpenAI Whisper (Tiny). Your data stayed on your device.",
       segments: result.chunks.map((chunk: any) => ({
         speaker: "Speaker",
         timestamp: formatTimestamp(chunk.timestamp[0]),
@@ -65,12 +68,12 @@ export const transcribeLocally = async (
     };
   } catch (error: any) {
     console.error("Local Transcription Error:", error);
-    throw new Error("Could not initialize local AI. Ensure your browser is up to date and you have a stable connection for the first load.");
+    throw new Error("Local AI failed to initialize. Make sure you have enough disk space for the AI model (approx 40MB).");
   }
 };
 
 function formatTimestamp(seconds: number): string {
-  if (isNaN(seconds)) return "00:00";
+  if (isNaN(seconds) || seconds === null) return "00:00";
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
