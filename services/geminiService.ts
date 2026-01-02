@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -15,8 +14,7 @@ export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<TranscriptionResponse> => {
-  // Use the API key from the environment. SDK requires { apiKey: ... } object.
-  // Fix: Use process.env.API_KEY directly as per guidelines.
+  // Always use { apiKey: process.env.API_KEY } for initialization.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
@@ -86,7 +84,6 @@ export const transcribeAudio = async (
       },
     });
 
-    // Fix: Using the .text property directly as per guidelines.
     const text = response.text;
     if (!text) {
       throw new Error("The AI returned an empty response. The audio might be unsupported or too silent.");
@@ -98,7 +95,7 @@ export const transcribeAudio = async (
     console.error("Gemini API Error:", error);
     
     if (error.status === 403) {
-      throw new Error("Invalid API Key or permission error. Check your setup.");
+      throw new Error("Invalid API Key or permission error. Ensure your Gemini API Key is valid and project billing is active.");
     } else if (error.status === 429) {
       throw new Error("Quota exceeded. Please wait a moment before trying again.");
     } else if (error.status === 400) {

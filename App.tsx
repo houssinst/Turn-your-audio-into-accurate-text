@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -29,7 +28,6 @@ function App() {
 
   useEffect(() => {
     if (isDarkMode) {
-      // Fix: Removed redundant 'class' class addition
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -69,11 +67,11 @@ function App() {
     setError(null);
   };
 
-  // Helper to render main content based on state to avoid TS narrowing bugs
-  const renderContent = () => {
+  // Simplified content rendering to satisfy TypeScript's type narrowing
+  const renderMainSection = () => {
     if (status === 'processing') {
       return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center">
           <div className="flex justify-center mb-6">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
@@ -103,16 +101,13 @@ function App() {
     }
 
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8">
         {mode === 'record' ? (
-          // Fix: status cannot be 'processing' here due to early return above
           <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
         ) : (
-          // Fix: status cannot be 'processing' here due to early return above
           <FileUploader onFileSelected={handleAudioReady} disabled={false} />
         )}
 
-        {/* Fix: status !== 'processing' is redundant here */}
         {audioData && (
           <div className="mt-6 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
             <Button 
@@ -130,7 +125,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-20 transition-colors duration-300">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/30">
@@ -182,8 +177,8 @@ function App() {
           </div>
         )}
 
-        {status !== 'success' && status !== 'processing' && (
-          <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
+        {(status !== 'success' && status !== 'processing') && (
+          <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
                 className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
@@ -191,8 +186,6 @@ function App() {
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                // Fix: status cannot be 'processing' here due to guard condition above
-                disabled={false}
             >
                 <Mic size={16} className="mr-2" />
                 Record Audio
@@ -204,8 +197,6 @@ function App() {
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                // Fix: status cannot be 'processing' here due to guard condition above
-                disabled={false}
             >
                 <Upload size={16} className="mr-2" />
                 Upload File
@@ -214,10 +205,10 @@ function App() {
         )}
 
         <div className="space-y-8">
-          {renderContent()}
+          {renderMainSection()}
         </div>
 
-        <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors duration-300">
+        <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8">
             <p className="mb-2">
             Usage of generative AI service is subject to Google's <a href="https://policies.google.com/terms/generative-ai/use-policy" target="_blank" rel="noopener noreferrer" className="underline">Prohibited Use Policy</a>.
             </p>
