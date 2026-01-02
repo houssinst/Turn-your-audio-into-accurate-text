@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -14,24 +15,26 @@ export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<TranscriptionResponse> => {
-  // Use the API key from the environment
+  // Use the API key from the environment. SDK requires { apiKey: ... } object.
+  // Fix: Use process.env.API_KEY directly as per guidelines.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Simplified and direct prompt for higher success rate
   const prompt = `
-    Analyze the provided audio recording. 
-    1. Summarize the content.
-    2. Transcribe the conversation word-for-word.
-    3. Identify different speakers (Speaker 1, Speaker 2, etc.).
-    4. Provide timestamps in MM:SS format.
-    5. Detect emotion for each speaker segment.
-    6. Provide English translation for non-English parts.
+    Analyze the provided audio recording and generate a professional transcript.
     
-    Output MUST be in the specified JSON format.
+    Instructions:
+    1. Summarize the overall content briefly.
+    2. Transcribe the conversation accurately, capturing the dialogue word-for-word.
+    3. Use speaker diarization (e.g., "Speaker 1", "Speaker 2").
+    4. Provide timestamps for each segment (Format: MM:SS).
+    5. Detect the language of each segment and provide an English translation if it is not English.
+    6. Analyze the emotional tone (Happy, Sad, Angry, or Neutral) for each segment.
+
+    Return the result strictly as valid JSON.
   `;
 
-  // Clean the MIME type - some browsers send extended strings like 'audio/webm;codecs=opus'
-  const cleanMimeType = mimeType.split(';')[0];
+  // Clean the MIME type - ensure it's a standard IANA type the API expects.
+  const cleanMimeType = mimeType.split(';')[0].toLowerCase();
 
   try {
     const response = await ai.models.generateContent({
@@ -56,7 +59,7 @@ export const transcribeAudio = async (
           properties: {
             summary: { 
               type: Type.STRING,
-              description: "Brief summary of the audio content."
+              description: "A summary of the audio content."
             },
             segments: {
               type: Type.ARRAY,
@@ -83,30 +86,25 @@ export const transcribeAudio = async (
       },
     });
 
+    // Fix: Using the .text property directly as per guidelines.
     const text = response.text;
     if (!text) {
-      throw new Error("The AI model returned an empty transcript. The audio might be silent or too short.");
+      throw new Error("The AI returned an empty response. The audio might be unsupported or too silent.");
     }
 
-    try {
-      return JSON.parse(text.trim()) as TranscriptionResponse;
-    } catch (parseError) {
-      console.error("JSON Parsing failed for text:", text);
-      throw new Error("Failed to read the transcription result. Please try recording a bit longer.");
-    }
+    return JSON.parse(text.trim()) as TranscriptionResponse;
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     
-    const status = error?.status;
-    if (status === 403) {
-      throw new Error("API Key Authentication failed. Please check your deployment settings.");
-    } else if (status === 429) {
-      throw new Error("Transcription rate limit reached. Please wait a moment.");
-    } else if (status === 400) {
-      throw new Error("The audio file format is not supported by the AI. Try a standard format like WAV or MP3.");
+    if (error.status === 403) {
+      throw new Error("Invalid API Key or permission error. Check your setup.");
+    } else if (error.status === 429) {
+      throw new Error("Quota exceeded. Please wait a moment before trying again.");
+    } else if (error.status === 400) {
+      throw new Error("The audio format is not supported or the file is corrupted.");
     }
     
-    throw new Error(error.message || "Transcription failed due to a network or server error.");
+    throw new Error(error.message || "An unexpected error occurred during transcription.");
   }
 };

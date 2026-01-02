@@ -29,6 +29,7 @@ function App() {
 
   useEffect(() => {
     if (isDarkMode) {
+      // Fix: Removed redundant 'class' class addition
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -66,6 +67,65 @@ function App() {
     setResult(null);
     setStatus('idle');
     setError(null);
+  };
+
+  // Helper to render main content based on state to avoid TS narrowing bugs
+  const renderContent = () => {
+    if (status === 'processing') {
+      return (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center transition-colors duration-300">
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
+              <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                <Sparkles size={24} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Analyzing Audio...</h3>
+          <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            Gemini is identifying speakers and generating your transcript. This usually takes just a few seconds.
+          </p>
+        </div>
+      );
+    }
+
+    if (result && status === 'success') {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Transcription Results</h2>
+            <Button onClick={handleReset} variant="secondary">Start Over</Button>
+          </div>
+          <TranscriptionDisplay data={result} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
+        {mode === 'record' ? (
+          // Fix: status cannot be 'processing' here due to early return above
+          <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
+        ) : (
+          // Fix: status cannot be 'processing' here due to early return above
+          <FileUploader onFileSelected={handleAudioReady} disabled={false} />
+        )}
+
+        {/* Fix: status !== 'processing' is redundant here */}
+        {audioData && (
+          <div className="mt-6 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
+            <Button 
+              onClick={handleTranscribe} 
+              className="w-full sm:w-auto"
+              icon={<Sparkles size={16} />}
+            >
+              Generate Transcript
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -122,9 +182,8 @@ function App() {
           </div>
         )}
 
-        {/* Removed status !== 'processing' from the conditional to prevent TS narrowing error for nested disabled props */}
-        {!result && (
-            <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
+        {status !== 'success' && status !== 'processing' && (
+          <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto transition-colors duration-300">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
                 className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
@@ -132,7 +191,8 @@ function App() {
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                disabled={status === 'processing'}
+                // Fix: status cannot be 'processing' here due to guard condition above
+                disabled={false}
             >
                 <Mic size={16} className="mr-2" />
                 Record Audio
@@ -144,65 +204,17 @@ function App() {
                     ? 'bg-indigo-600 text-white shadow-sm' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                disabled={status === 'processing'}
+                // Fix: status cannot be 'processing' here due to guard condition above
+                disabled={false}
             >
                 <Upload size={16} className="mr-2" />
                 Upload File
             </button>
-            </div>
+          </div>
         )}
 
         <div className="space-y-8">
-          {/* Changed status !== 'processing' logic to use CSS hidden instead of React conditional rendering, 
-              which prevents 'status' from being narrowed and fixes TS errors when checking 'status === processing' internally */}
-          {!result && (
-            <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300 ${status === 'processing' ? 'hidden' : ''}`}>
-              {mode === 'record' ? (
-                <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
-              ) : (
-                <FileUploader onFileSelected={handleAudioReady} disabled={false} />
-              )}
-
-              {audioData && (
-                <div className="mt-6 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
-                  <Button 
-                    onClick={handleTranscribe} 
-                    className="w-full sm:w-auto"
-                    icon={<Sparkles size={16} />}
-                  >
-                    Generate Transcript
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {status === 'processing' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center transition-colors duration-300">
-              <div className="flex justify-center mb-6">
-                 <div className="relative">
-                    <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
-                    <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                        <Sparkles size={24} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                    </div>
-                 </div>
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Analyzing Audio...</h3>
-              <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                Gemini is identifying speakers and generating your transcript. This usually takes just a few seconds.
-              </p>
-            </div>
-          )}
-
-          {result && status === 'success' && (
-            <div>
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Transcription Results</h2>
-                    <Button onClick={handleReset} variant="secondary">Start Over</Button>
-                </div>
-                <TranscriptionDisplay data={result} />
-            </div>
-          )}
+          {renderContent()}
         </div>
 
         <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors duration-300">
