@@ -8,30 +8,28 @@ import { TranscriptionResponse } from "../types";
 
 /**
  * Transcribes audio using Gemini 2.5 Native Audio model.
- * Optimized for natural language processing and speaker identification.
  */
 export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<TranscriptionResponse> => {
-  // Always use { apiKey: process.env.API_KEY } for initialization.
+  // Initialize AI using the environment variable. 
+  // Ensure your deployment includes API_KEY in the environment settings.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     Analyze the provided audio recording and generate a professional transcript.
     
     Instructions:
-    1. Summarize the overall content briefly.
-    2. Transcribe the conversation accurately, capturing the dialogue word-for-word.
-    3. Use speaker diarization (e.g., "Speaker 1", "Speaker 2").
-    4. Provide timestamps for each segment (Format: MM:SS).
-    5. Detect the language of each segment and provide an English translation if it is not English.
-    6. Analyze the emotional tone (Happy, Sad, Angry, or Neutral) for each segment.
+    1. Summarize the content concisely in the 'summary' field.
+    2. Identify and label speakers (e.g., Speaker 1, Speaker 2).
+    3. Provide timestamps in MM:SS format for each dialogue segment.
+    4. Detect the primary language of each segment and translate to English if needed.
+    5. Categorize the emotion as Happy, Sad, Angry, or Neutral.
 
-    Return the result strictly as valid JSON.
+    Output format MUST be strictly JSON.
   `;
 
-  // Clean the MIME type - ensure it's a standard IANA type the API expects.
   const cleanMimeType = mimeType.split(';')[0].toLowerCase();
 
   try {
@@ -55,10 +53,7 @@ export const transcribeAudio = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            summary: { 
-              type: Type.STRING,
-              description: "A summary of the audio content."
-            },
+            summary: { type: Type.STRING },
             segments: {
               type: Type.ARRAY,
               items: {
@@ -84,24 +79,23 @@ export const transcribeAudio = async (
       },
     });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error("The AI returned an empty response. The audio might be unsupported or too silent.");
+    // Access the text property directly (it's a getter, not a method)
+    const textOutput = response.text;
+    if (!textOutput) {
+      throw new Error("Empty response from AI. Try a longer audio segment.");
     }
 
-    return JSON.parse(text.trim()) as TranscriptionResponse;
+    return JSON.parse(textOutput.trim()) as TranscriptionResponse;
 
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("Transcription API Error:", error);
     
     if (error.status === 403) {
-      throw new Error("Invalid API Key or permission error. Ensure your Gemini API Key is valid and project billing is active.");
+      throw new Error("Authentication failed. Please verify that the API key is correctly set in your environment variables.");
     } else if (error.status === 429) {
-      throw new Error("Quota exceeded. Please wait a moment before trying again.");
-    } else if (error.status === 400) {
-      throw new Error("The audio format is not supported or the file is corrupted.");
+      throw new Error("Rate limit exceeded. Please wait a few moments.");
     }
     
-    throw new Error(error.message || "An unexpected error occurred during transcription.");
+    throw new Error(error.message || "Failed to process audio. Please try again with a different file.");
   }
 };

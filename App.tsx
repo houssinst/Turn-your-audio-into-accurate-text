@@ -67,11 +67,11 @@ function App() {
     setError(null);
   };
 
-  // Simplified content rendering to satisfy TypeScript's type narrowing
+  // Improved rendering logic to solve TS narrowing issues (TS2367)
   const renderMainSection = () => {
     if (status === 'processing') {
       return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center animate-fade-in">
           <div className="flex justify-center mb-6">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
@@ -82,7 +82,7 @@ function App() {
           </div>
           <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Analyzing Audio...</h3>
           <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Gemini is identifying speakers and generating your transcript. This usually takes just a few seconds.
+            Our AI is identifying speakers and processing timestamps. This takes just a few seconds.
           </p>
         </div>
       );
@@ -90,7 +90,7 @@ function App() {
 
     if (result && status === 'success') {
       return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="animate-fade-in">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Transcription Results</h2>
             <Button onClick={handleReset} variant="secondary">Start Over</Button>
@@ -101,11 +101,11 @@ function App() {
     }
 
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-fade-in">
         {mode === 'record' ? (
-          <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
+          <AudioRecorder onAudioCaptured={handleAudioReady} />
         ) : (
-          <FileUploader onFileSelected={handleAudioReady} disabled={false} />
+          <FileUploader onFileSelected={handleAudioReady} />
         )}
 
         {audioData && (
@@ -125,7 +125,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-20 transition-colors duration-300">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="bg-indigo-600 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/30">
@@ -141,7 +141,7 @@ function App() {
             </div>
             <button
               onClick={toggleDarkMode}
-              className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               aria-label="Toggle Dark Mode"
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
@@ -153,31 +153,31 @@ function App() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-            Turn your audio into accurate text
+            Professional Transcription for Everyone
           </h2>
           <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Upload a file or record directly to get speaker-identified transcripts with timestamps and language detection instantly.
+            Upload files or record directly. Get accurate speaker identification, timestamps, and emotional analysis instantly.
           </p>
         </div>
 
         {error && (
-          <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-start text-red-800 dark:text-red-400 shadow-sm">
+          <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-start text-red-800 dark:text-red-400 shadow-sm animate-fade-in">
             <AlertTriangle className="mr-4 flex-shrink-0 mt-0.5 text-red-600 dark:text-red-500" size={24} />
             <div className="flex-1">
-              <h4 className="font-bold mb-1">Transcription Failed</h4>
+              <h4 className="font-bold mb-1">Transcription Error</h4>
               <p className="text-sm leading-relaxed opacity-90">{error}</p>
               <button 
                 onClick={handleReset}
                 className="mt-3 flex items-center text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-300 hover:underline"
               >
                 <RotateCcw size={12} className="mr-1" />
-                Try Again
+                Reset & Try Again
               </button>
             </div>
           </div>
         )}
 
-        {(status !== 'success' && status !== 'processing') && (
+        {status !== 'success' && status !== 'processing' && (
           <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
@@ -188,7 +188,7 @@ function App() {
                 }`}
             >
                 <Mic size={16} className="mr-2" />
-                Record Audio
+                Record
             </button>
             <button
                 onClick={() => { setMode('upload'); handleReset(); }}
@@ -199,7 +199,7 @@ function App() {
                 }`}
             >
                 <Upload size={16} className="mr-2" />
-                Upload File
+                Upload
             </button>
           </div>
         )}
@@ -208,9 +208,9 @@ function App() {
           {renderMainSection()}
         </div>
 
-        <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8">
+        <div className="mt-16 text-center text-xs text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors duration-300">
             <p className="mb-2">
-            Usage of generative AI service is subject to Google's <a href="https://policies.google.com/terms/generative-ai/use-policy" target="_blank" rel="noopener noreferrer" className="underline">Prohibited Use Policy</a>.
+            Usage of AI services is subject to the provider's <a href="https://policies.google.com/terms/generative-ai/use-policy" target="_blank" rel="noopener noreferrer" className="underline">Prohibited Use Policy</a>.
             </p>
         </div>
       </main>
