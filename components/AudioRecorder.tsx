@@ -5,17 +5,25 @@
 */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, Square, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Mic, Square, AlertCircle, Zap } from 'lucide-react';
 import Button from './Button';
 import { AudioData } from '../types';
 
 interface AudioRecorderProps {
   onAudioCaptured: (audioData: AudioData) => void;
   onTranscriptCaptured?: (transcript: string) => void;
+  onLiveUpdate?: (text: { final: string; interim: string }) => void;
   disabled?: boolean;
+  lang?: string;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTranscriptCaptured, disabled }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({ 
+  onAudioCaptured, 
+  onTranscriptCaptured, 
+  onLiveUpdate,
+  disabled,
+  lang = 'en-US'
+}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
@@ -26,12 +34,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
   const timerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   
-  // Native Recognition Ref
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef<string>("");
 
   useEffect(() => {
-    // Check permission state
     if (navigator.permissions && (navigator.permissions as any).query) {
       (navigator.permissions as any).query({ name: 'microphone' }).then((result: any) => {
         setPermissionStatus(result.state);
@@ -49,24 +55,48 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
       streamRef.current = stream;
       setPermissionStatus('granted');
       
-      // Setup Native Recognition (The "not cloud", "low memory" engine)
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = lang;
         
         recognitionRef.current.onresult = (event: any) => {
           let interimTranscript = "";
+          let finalBatch = "";
+          
           for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscriptRef.current += event.results[i][0].transcript;
+              finalBatch += transcript;
             } else {
-              interimTranscript += event.results[i][0].transcript;
+              interimTranscript += transcript;
             }
           }
+          
+          if (finalBatch) {
+            finalTranscriptRef.current += finalBatch + " ";
+          }
+
+          if (onLiveUpdate) {
+            onLiveUpdate({ 
+              final: finalTranscriptRef.current, 
+              interim: interimTranscript 
+            });
+          }
         };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.warn("Speech recognition error", event.error);
+          if (event.error === 'network') {
+            setError("Network connection lost. Recognition might be limited.");
+          }
+        };
+
         recognitionRef.current.start();
+      } else {
+        setError("Your browser does not support live transcription. Try Chrome or Edge.");
       }
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
@@ -91,7 +121,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
           const base64 = (reader.result as string).split(',')[1];
           onAudioCaptured({ blob, base64, mimeType });
           
-          // If we captured a native transcript and have a callback
           if (onTranscriptCaptured && finalTranscriptRef.current) {
             onTranscriptCaptured(finalTranscriptRef.current);
           }
@@ -146,6 +175,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const isArabic = lang.startsWith('ar');
+
   return (
     <div className="flex flex-col items-center justify-center py-6">
       <div className={`relative flex items-center justify-center w-28 h-28 mb-8 rounded-full transition-all duration-500 ${isRecording ? 'bg-red-50 dark:bg-red-900/20 ring-4 ring-red-500/30' : 'bg-indigo-50 dark:bg-indigo-900/30 ring-4 ring-indigo-500/10'}`}>
@@ -158,16 +189,24 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
       <div className="text-center mb-8">
         {isRecording ? (
           <div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-wider">Live Capture</h3>
-            <p className="text-5xl font-mono text-slate-900 dark:text-white mt-3 tabular-nums">{formatTime(duration)}</p>
+            <div className={`flex items-center justify-center gap-2 mb-2 ${isArabic ? 'flex-row-reverse' : ''}`}>
+              <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+              <h3 className="text-xs font-bold text-red-500 uppercase tracking-widest">
+                {isArabic ? "نسخ مباشر" : "Live Transcribing"}
+              </h3>
+            </div>
+            <p className="text-5xl font-mono text-slate-900 dark:text-white tabular-nums">{formatTime(duration)}</p>
           </div>
         ) : (
           <div className="px-6">
             <h3 className="text-xl font-bold text-slate-800 dark:text-white">
-              {permissionStatus === 'denied' ? 'Access Denied' : 'Native Engine Ready'}
+              {permissionStatus === 'denied' ? (isArabic ? 'تم رفض الوصول' : 'Access Denied') : (isArabic ? 'المحرك جاهز' : 'Native Engine Ready')}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-xs mx-auto">
-              Real-time recognition using your browser's built-in technology. Fast and lightweight.
+              {isArabic 
+                ? "تعرف على الكلام على الجهاز. زمن انتقال صفري وخصوصية تامة."
+                : "On-device speech recognition. Zero latency, total privacy."
+              }
             </p>
           </div>
         )}
@@ -185,9 +224,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
           onClick={startRecording} 
           disabled={disabled}
           className="w-full max-w-xs py-4 text-lg rounded-2xl shadow-xl shadow-indigo-200 dark:shadow-none"
-          icon={<Mic size={22} />}
+          icon={<Zap size={22} />}
         >
-          Start Live Transcript
+          {isArabic ? "بدء جلسة مباشرة" : "Start Live Session"}
         </Button>
       ) : (
         <Button 
@@ -196,7 +235,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioCaptured, onTransc
           icon={<Square size={20} fill="currentColor" />}
           className="w-full max-w-xs py-4 text-lg rounded-2xl shadow-xl shadow-red-200 dark:shadow-none"
         >
-          Finish Recording
+          {isArabic ? "إنهاء التسجيل" : "Finish Recording"}
         </Button>
       )}
     </div>

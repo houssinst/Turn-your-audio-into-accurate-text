@@ -12,7 +12,8 @@ import { TranscriptionResponse } from "../types";
  */
 export const transcribeAudio = async (
   base64Audio: string,
-  mimeType: string
+  mimeType: string,
+  preferredLanguage: string = 'en-US'
 ): Promise<TranscriptionResponse> => {
   const apiKey = process.env.API_KEY;
 
@@ -22,14 +23,16 @@ export const transcribeAudio = async (
 
   const ai = new GoogleGenAI({ apiKey });
 
+  const isArabic = preferredLanguage.startsWith('ar');
+
   const prompt = `
     Analyze the provided audio recording and generate a professional transcript.
     
     Instructions:
-    1. Summarize the content concisely in the 'summary' field.
+    1. Summarize the content concisely in the 'summary' field. ${isArabic ? 'Write the summary in Arabic.' : 'Write the summary in English.'}
     2. Identify and label speakers (e.g., Speaker 1, Speaker 2).
     3. Provide timestamps in MM:SS format for each dialogue segment.
-    4. Detect the primary language of each segment and translate to English if needed.
+    4. Detect the primary language of each segment. ${isArabic ? 'If the content is in Arabic, keep it in Arabic. If it is in another language, translate to Arabic in the translation field.' : 'Translate to English in the translation field if the source is not English.'}
     5. Categorize the emotion as Happy, Sad, Angry, or Neutral.
 
     Output format MUST be strictly JSON.
