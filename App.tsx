@@ -11,11 +11,11 @@ import FileUploader from './components/FileUploader';
 import TranscriptionDisplay from './components/TranscriptionDisplay';
 import Button from './components/Button';
 import { transcribeAudio } from './services/geminiService';
-import { AppStatus, AudioData, TranscriptionResponse } from './types';
+import { AudioData, TranscriptionResponse, AppState } from './types';
 
 function App() {
   const [mode, setMode] = useState<'record' | 'upload'>('record');
-  const [status, setStatus] = useState<AppStatus>('idle');
+  const [status, setStatus] = useState<AppState>('idle');
   const [audioData, setAudioData] = useState<AudioData | null>(null);
   const [result, setResult] = useState<TranscriptionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,19 +151,21 @@ function App() {
         <div className="space-y-8">
           
           {/* Input Section */}
+          {/* Fix: Simplified block guard to avoid impossible status checks inside. 
+              Since this block is hidden when status is 'processing', internal checks for 'processing' status are redundant and cause TS errors. */}
           {!result && status !== 'processing' && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 transition-colors duration-300">
               {mode === 'record' ? (
-                <AudioRecorder onAudioCaptured={handleAudioReady} disabled={status === 'processing'} />
+                <AudioRecorder onAudioCaptured={handleAudioReady} disabled={false} />
               ) : (
-                <FileUploader onFileSelected={handleAudioReady} disabled={status === 'processing'} />
+                <FileUploader onFileSelected={handleAudioReady} disabled={false} />
               )}
 
               {audioData && (
                 <div className="mt-6 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
                   <Button 
                     onClick={handleTranscribe} 
-                    isLoading={status === 'processing'}
+                    isLoading={false}
                     className="w-full sm:w-auto"
                     icon={<Sparkles size={16} />}
                   >

@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -26,7 +25,8 @@ export interface TranscriptionResponse {
   segments: TranscriptionSegment[];
 }
 
-export type AppStatus = 'idle' | 'recording' | 'processing' | 'success' | 'error';
+// AppState must include 'processing' to be compatible with the status transitions in App.tsx
+export type AppState = 'idle' | 'recording' | 'processing' | 'success' | 'error';
 
 export interface AudioData {
   blob: Blob | File;

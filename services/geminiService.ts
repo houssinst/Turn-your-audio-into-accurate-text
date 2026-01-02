@@ -6,15 +6,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TranscriptionSegment } from "../types";
 
+// Explicitly declare process for environments where @types/node might not be indexed correctly by tsc
+declare var process: any;
+
 export const transcribeAudio = async (
   base64Audio: string,
   mimeType: string
 ): Promise<{ segments: TranscriptionSegment[]; summary: string }> => {
-  if (!process.env.API_KEY) {
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+
+  if (!apiKey) {
     throw new Error("API Key is missing. Please configure process.env.API_KEY.");
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     You are an expert audio transcription assistant.
