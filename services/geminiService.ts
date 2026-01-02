@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,7 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { TranscriptionResponse } from "../types";
 
 /**
- * Transcribes audio using Gemini 2.5 Native Audio model.
+ * Transcribes audio using Gemini 3 Flash model.
  */
 export const transcribeAudio = async (
   base64Audio: string,
@@ -16,7 +17,7 @@ export const transcribeAudio = async (
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    throw new Error("Cloud Engine Error: No API Key found in environment variables. Please add 'API_KEY' to your environment secrets or use 'Local Engine'.");
+    throw new Error("Cloud Engine Error: No API Key found in environment variables. Please add 'API_KEY' to your environment secrets.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -38,20 +39,22 @@ export const transcribeAudio = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-native-audio-preview-09-2025",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: cleanMimeType,
-              data: base64Audio,
+      model: "gemini-3-flash-preview",
+      contents: [
+        {
+          parts: [
+            {
+              inlineData: {
+                mimeType: cleanMimeType,
+                data: base64Audio,
+              },
             },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
       config: {
         responseMimeType: "application/json",
         responseSchema: {

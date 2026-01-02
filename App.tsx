@@ -5,24 +5,20 @@
 */
 
 import React, { useState, useEffect } from 'react';
-import { Mic, Upload, Sparkles, AlertTriangle, Moon, Sun, RotateCcw, Shield, Cloud, Cpu, Lock } from 'lucide-react';
+import { Mic, Upload, Sparkles, AlertTriangle, Moon, Sun, RotateCcw, Shield, Cpu, Zap } from 'lucide-react';
 import AudioRecorder from './components/AudioRecorder';
 import FileUploader from './components/FileUploader';
 import TranscriptionDisplay from './components/TranscriptionDisplay';
 import Button from './components/Button';
 import { transcribeAudio } from './services/geminiService';
-import { transcribeLocally } from './services/whisperService';
-import { AudioData, TranscriptionResponse, AppState, EngineType } from './types';
+import { AudioData, TranscriptionResponse, AppState } from './types';
 
 function App() {
   const [mode, setMode] = useState<'record' | 'upload'>('record');
-  // Default to local for a "no-API-key required" experience
-  const [engine, setEngine] = useState<EngineType>('local');
   const [status, setStatus] = useState<AppState>('idle');
   const [audioData, setAudioData] = useState<AudioData | null>(null);
   const [result, setResult] = useState<TranscriptionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -41,6 +37,22 @@ function App() {
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
+  // For native recording, the transcript might come back directly from the recorder component
+  const handleNativeTranscript = (transcript: string) => {
+    setStatus('success');
+    setResult({
+      summary: "Transcript captured using your browser's native engine. Use 'AI Analysis' to generate summaries and emotions.",
+      segments: [{
+        speaker: "Speaker",
+        timestamp: "Live",
+        content: transcript,
+        language: "Detected",
+        language_code: "auto",
+        emotion: undefined
+      }]
+    });
+  };
+
   const handleAudioReady = (data: AudioData) => {
     setAudioData(data);
     setError(null);
@@ -48,25 +60,19 @@ function App() {
     setStatus('idle');
   };
 
-  const handleTranscribe = async () => {
+  const handleCloudTranscribe = async () => {
     if (!audioData) return;
 
+    setStatus('processing');
     setError(null);
     
     try {
-      if (engine === 'local') {
-        setStatus('loading_model');
-        const data = await transcribeLocally(audioData.blob, (p) => setProgress(p));
-        setResult(data);
-      } else {
-        setStatus('processing');
-        const data = await transcribeAudio(audioData.base64, audioData.mimeType);
-        setResult(data);
-      }
+      const data = await transcribeAudio(audioData.base64, audioData.mimeType);
+      setResult(data);
       setStatus('success');
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Transcription failed.");
+      setError(err.message || "Cloud processing failed.");
       setStatus('error');
     }
   };
@@ -76,40 +82,19 @@ function App() {
     setResult(null);
     setStatus('idle');
     setError(null);
-    setProgress(0);
   };
 
   const renderContent = () => {
-    if (status === 'loading_model' || status === 'processing') {
+    if (status === 'processing') {
       return (
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center animate-fade-in">
           <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
-              <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                <Sparkles size={24} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
-              </div>
-            </div>
+            <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin"></div>
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-            {status === 'loading_model' ? 'Loading Local AI...' : 'Processing Audio...'}
-          </h3>
-          <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6 text-sm">
-            {status === 'loading_model' 
-              ? 'We are downloading the Whisper model (40MB) to your browser cache. This happens only once.' 
-              : 'Our cloud engine is analyzing your audio for speakers and context.'}
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Analyzing Audio...</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
+            Leveraging Gemini 3 Flash for high-quality diarization and summary.
           </p>
-          {status === 'loading_model' && progress > 0 && (
-            <div className="w-full max-w-xs mx-auto">
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-full h-2 shadow-inner overflow-hidden">
-                <div 
-                  className="bg-indigo-600 h-full transition-all duration-300 ease-out" 
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <p className="text-[10px] mt-2 font-bold uppercase tracking-widest text-slate-400">{Math.round(progress)}% Loaded</p>
-            </div>
-          )}
         </div>
       );
     }
@@ -119,7 +104,7 @@ function App() {
         <div className="animate-fade-in">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Transcript</h2>
-            <Button onClick={handleReset} variant="secondary" icon={<RotateCcw size={16} />}>Start Over</Button>
+            <Button onClick={handleReset} variant="secondary" icon={<RotateCcw size={16} />}>Clear</Button>
           </div>
           <TranscriptionDisplay data={result} />
         </div>
@@ -128,42 +113,19 @@ function App() {
 
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8 animate-fade-in">
-        <div className="mb-8">
-           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Select Engine</label>
-           <div className="flex flex-col sm:flex-row gap-4">
-              <button 
-                onClick={() => setEngine('local')}
-                className={`flex-1 flex items-start p-4 rounded-xl border-2 transition-all text-left ${engine === 'local' ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-              >
-                <div className={`p-2 rounded-lg mr-3 ${engine === 'local' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                   <Cpu size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm">Direct Engine (Whisper)</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Free, Private, No Key Needed</div>
-                </div>
-              </button>
-              <button 
-                onClick={() => setEngine('cloud')}
-                className={`flex-1 flex items-start p-4 rounded-xl border-2 transition-all text-left ${engine === 'cloud' ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-              >
-                <div className={`p-2 rounded-lg mr-3 ${engine === 'cloud' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                   <Cloud size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm">Cloud Engine (Gemini)</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Diarization, Emotions, Summary</div>
-                </div>
-              </button>
-           </div>
-        </div>
-
-        {mode === 'record' ? <AudioRecorder onAudioCaptured={handleAudioReady} /> : <FileUploader onFileSelected={handleAudioReady} />}
+        {mode === 'record' ? (
+          <AudioRecorder 
+            onAudioCaptured={handleAudioReady} 
+            onTranscriptCaptured={handleNativeTranscript}
+          />
+        ) : (
+          <FileUploader onFileSelected={handleAudioReady} />
+        )}
 
         {audioData && (
           <div className="mt-8 flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
-            <Button onClick={handleTranscribe} className="w-full sm:w-auto px-10 h-12 text-base shadow-indigo-200 dark:shadow-none" icon={<Sparkles size={18} />}>
-              Process with {engine === 'local' ? 'Whisper AI' : 'Gemini AI'}
+            <Button onClick={handleCloudTranscribe} className="w-full sm:w-auto px-10 h-12 text-base" icon={<Sparkles size={18} />}>
+              Generate AI Summary & Emotions
             </Button>
           </div>
         )}
@@ -173,32 +135,27 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-20 transition-colors duration-300">
-      <header className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/30">
-              <Sparkles size={22} />
+              <Zap size={22} />
             </div>
-            <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white uppercase">EchoScript</h1>
+            <h1 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">EchoScript</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-500/20">
-              <Lock size={12} className="mr-1.5" /> Local-First SaaS
-            </div>
-            <button onClick={toggleDarkMode} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          </div>
+          <button onClick={toggleDarkMode} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">
-            Transcribe with <span className="text-indigo-600">Pure Privacy.</span>
+          <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">
+            Transcribe <span className="text-indigo-600">Instantly.</span>
           </h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
-            Choose Direct Engine to process everything locally in your browser. No API keys, no data leaks, no cost.
+          <p className="text-lg text-slate-600 dark:text-slate-400">
+            Zero-memory native engine for live speech, Gemini for professional files.
           </p>
         </div>
 
@@ -206,30 +163,20 @@ function App() {
           <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-5 flex items-start text-red-800 dark:text-red-400 animate-fade-in shadow-sm">
             <AlertTriangle className="mr-4 flex-shrink-0 mt-0.5 text-red-600" size={24} />
             <div className="flex-1">
-              <h4 className="font-bold mb-1">Processing Error</h4>
+              <h4 className="font-bold mb-1">Engine Error</h4>
               <p className="text-sm opacity-90">{error}</p>
-              <div className="mt-4 flex gap-3">
-                <button onClick={handleReset} className="text-xs font-bold uppercase tracking-wider bg-red-100 dark:bg-red-900/40 px-4 py-2 rounded-lg">Reset</button>
-                {engine === 'cloud' && (
-                   <button 
-                     onClick={() => { setEngine('local'); setError(null); }} 
-                     className="text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white px-4 py-2 rounded-lg"
-                   >
-                     Use Local Engine (Keyless)
-                   </button>
-                )}
-              </div>
+              <button onClick={handleReset} className="mt-3 text-xs font-bold uppercase tracking-wider bg-red-100 dark:bg-red-900/40 px-3 py-1.5 rounded-lg">Try Again</button>
             </div>
           </div>
         )}
 
-        {(status !== 'success' && status !== 'processing' && status !== 'loading_model') && (
+        {(status !== 'success' && status !== 'processing') && (
           <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex mb-8 w-full sm:w-auto">
             <button
                 onClick={() => { setMode('record'); handleReset(); }}
                 className={`flex-1 sm:flex-none flex items-center justify-center px-8 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'record' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
-                <Mic size={18} className="mr-2" /> Record
+                <Mic size={18} className="mr-2" /> Live
             </button>
             <button
                 onClick={() => { setMode('upload'); handleReset(); }}
@@ -246,10 +193,10 @@ function App() {
 
         <div className="mt-20 flex flex-col items-center gap-6 text-center">
             <div className="flex items-center gap-3 px-4 py-2 bg-slate-100 dark:bg-slate-900 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-500">
-                <Shield size={14} className="text-indigo-600" /> Private Engine Active
+                <Shield size={14} className="text-indigo-600" /> Native Engine Protected
             </div>
             <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm leading-relaxed">
-              EchoScript's Direct Engine runs OpenAI's Whisper model completely inside your browser tab using WebAssembly and WebGPU.
+              Recording uses your browser's native capabilities. No memory-heavy models are downloaded. AI Analysis is powered by Gemini 3 Flash.
             </p>
         </div>
       </main>
